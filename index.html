@@ -70,7 +70,7 @@
   </main>
   <div class="panel">
     <span><b>&larr; &rarr;</b> / <b>A D</b> — move the paddle</span>
-    <span><b>Space / Enter</b> — launch</span>
+    <span><b>Space / Enter</b> — launch · hold to shoot with GUN</span>
     <span><b>P</b> — pause</span>
     <span><b>R</b> — restart level</span>
     <span><b>Esc</b> — level menu</span>
@@ -78,20 +78,26 @@
 
   <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
   <script>
-    // The game is the Python package in src/brickbreaker/ (this page is served
+    // The game is the Python package in src/webbrick/ (this page is served
     // from the project root). Keep MODULES in sync with the files in that
     // directory: each one is copied into Pyodide's virtual filesystem before
     // the package is imported.
-    const PACKAGE = "brickbreaker";
+    const PACKAGE = "webbrick";
     const PACKAGE_URL = `src/${PACKAGE}`;
     const MODULES = [
       "__init__.py",
+      "ball.py",
+      "bonus.py",
       "brick.py",
       "config.py",
+      "font.py",
       "game.py",
       "graphics.py",
       "levels.py",
       "main.py",
+      "particle.py",
+      "particles.py",
+      "powerup.py",
       "sprite.py",
       "storage.py",
     ];

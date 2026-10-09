@@ -16,7 +16,7 @@ from .config import (
 class Brick:
     """One brick: position, remaining hit points, color and hit flash."""
 
-    __slots__ = ("color", "flash", "hp", "solid", "x", "y")
+    __slots__ = ("bonus", "color", "flash", "hp", "solid", "x", "y")
 
     def __init__(self, x: int, y: int, hp: int, color: str, *, solid: bool) -> None:
         self.x = x
@@ -25,6 +25,7 @@ class Brick:
         self.color = color
         self.solid = solid  # steel: bounces the ball, never breaks
         self.flash = 0.0
+        self.bonus: str | None = None  # power-up dropped when it breaks
 
 
 def build_bricks(rows: tuple[str, ...]) -> list[Brick]:

@@ -6,5 +6,5 @@ Python through the Pyodide FFI (``js`` for DOM access, ``create_proxy`` so JS ca
 call back into Python).
 
 ``index.html`` (at the project root) copies this package into Pyodide's virtual filesystem, then calls
-:func:`brickbreaker.main.main`.
+:func:`webbrick.main.main`.
 """

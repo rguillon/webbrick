@@ -20,6 +20,11 @@ test: ## Test the code with pytest
 	@echo "🚀 Testing code: Running pytest"
 	@uv run python -m pytest --cov --cov-config=pyproject.toml --cov-report=xml
 
+.PHONY: mutate
+mutate: ## Mutation-test the code with mutmut (browse the survivors with 'uv run mutmut browse')
+	@echo "🚀 Mutation testing: Running mutmut"
+	@uv run mutmut run
+
 .PHONY: build
 build: clean-build ## Build wheel file
 	@echo "🚀 Creating wheel file"

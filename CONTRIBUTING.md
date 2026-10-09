@@ -1,4 +1,4 @@
-# Contributing to `webrick`
+# Contributing to `webbrick`
 
 Contributions are welcome, and they are greatly appreciated!
 Every little bit helps, and credit will always be given.
@@ -9,7 +9,7 @@ You can contribute in many ways:
 
 ## Report Bugs
 
-Report bugs at https://github.com/rguillon/webrick/issues
+Report bugs at https://github.com/rguillon/webbrick/issues
 
 If you are reporting a bug, please include:
 
@@ -29,11 +29,11 @@ Anything tagged with "enhancement" and "help wanted" is open to whoever wants to
 
 ## Write Documentation
 
-webrick could always use more documentation, whether as part of the official docs, in docstrings, or even on the web in blog posts, articles, and such.
+webbrick could always use more documentation, whether as part of the official docs, in docstrings, or even on the web in blog posts, articles, and such.
 
 ## Submit Feedback
 
-The best way to send feedback is to file an issue at https://github.com/rguillon/webrick/issues.
+The best way to send feedback is to file an issue at https://github.com/rguillon/webbrick/issues.
 
 If you are proposing a new feature:
 
@@ -44,22 +44,22 @@ If you are proposing a new feature:
 
 # Get Started!
 
-Ready to contribute? Here's how to set up `webrick` for local development.
+Ready to contribute? Here's how to set up `webbrick` for local development.
 Please note this documentation assumes you already have `uv` and `Git` installed and ready to go.
 
-1. Fork the `webrick` repo on GitHub.
+1. Fork the `webbrick` repo on GitHub.
 
 2. Clone your fork locally:
 
 ```bash
 cd <directory_in_which_repo_should_be_created>
-git clone git@github.com:YOUR_NAME/webrick.git
+git clone git@github.com:YOUR_NAME/webbrick.git
 ```
 
 3. Now we need to install the environment. Navigate into the directory
 
 ```bash
-cd webrick
+cd webbrick
 ```
 
 Then, install and activate the environment with:

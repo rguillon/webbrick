@@ -1,0 +1,8 @@
+services:
+  webbrick:
+    build: .
+    image: webbrick:latest
+    container_name: webbrick
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

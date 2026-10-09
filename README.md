@@ -1,68 +1,82 @@
-# webrick
+# webbrick
 
-[![Release](https://img.shields.io/github/v/release/rguillon/webrick)](https://img.shields.io/github/v/release/rguillon/webrick)
-[![Build status](https://img.shields.io/github/actions/workflow/status/rguillon/webrick/main.yml?branch=main)](https://github.com/rguillon/webrick/actions/workflows/main.yml?query=branch%3Amain)
-[![codecov](https://codecov.io/gh/rguillon/webrick/branch/main/graph/badge.svg)](https://codecov.io/gh/rguillon/webrick)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/rguillon/webrick)](https://img.shields.io/github/commit-activity/m/rguillon/webrick)
-[![License](https://img.shields.io/github/license/rguillon/webrick)](https://img.shields.io/github/license/rguillon/webrick)
+[![Release](https://img.shields.io/github/v/release/rguillon/webbrick)](https://img.shields.io/github/v/release/rguillon/webbrick)
+[![Build status](https://img.shields.io/github/actions/workflow/status/rguillon/webbrick/main.yml?branch=main)](https://github.com/rguillon/webbrick/actions/workflows/main.yml?query=branch%3Amain)
+[![codecov](https://codecov.io/gh/rguillon/webbrick/branch/main/graph/badge.svg)](https://codecov.io/gh/rguillon/webbrick)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/rguillon/webbrick)](https://img.shields.io/github/commit-activity/m/rguillon/webbrick)
+[![License](https://img.shields.io/github/license/rguillon/webbrick)](https://img.shields.io/github/license/rguillon/webbrick)
 
-Python Web brick breaker
+A brick breaker game written in pure Python and running in the browser through
+[Pyodide](https://pyodide.org/). There is no build step, no image assets (every
+graphic is drawn in code) and no hand-written JavaScript beyond a small bootstrap.
 
-- **Github repository**: <https://github.com/rguillon/webrick/>
-- **Documentation** <https://rguillon.github.io/webrick/>
+- **Github repository**: <https://github.com/rguillon/webbrick/>
+- **Documentation** <https://rguillon.github.io/webbrick/>
 
-## Getting started with your project
-
-### 1. Create a New Repository
-
-First, create a repository on GitHub with the same name as this project, and then run the following commands:
+## Play the game
 
 ```bash
-git init -b main
-git add .
-git commit -m "init commit"
-git remote add origin git@github.com:rguillon/webrick.git
-git push -u origin main
+make run            # or: make run PORT=9000
 ```
 
-### 2. Set Up Your Development Environment
+Then open <http://127.0.0.1:8000/>. This serves the repository root with
+`uv run python -m http.server`. `index.html` loads Pyodide from a CDN (internet needed
+on the first load) and then the game package from `src/webbrick/`. Opening
+`index.html` directly from disk doesn't work, because the page fetches the Python modules.
 
-Then, install the environment and the pre-commit hooks with
+### Controls
+
+| Key                      | Menu                         | In game                                   |
+| ------------------------ | ---------------------------- | ----------------------------------------- |
+| **← → ↑ ↓**              | choose a level               | **← →** (or **A D**) move the paddle      |
+| **1**–**6**              | start that level             |                                           |
+| **Space / Enter**        | start the selected level     | launch the ball, resume, continue; hold to fire with the gun |
+| **P**                    |                              | pause                                     |
+| **R**                    |                              | restart the level                         |
+| **Esc**                  |                              | back to the level menu                    |
+
+### Levels and bonuses
+
+There are six levels. Bricks take one to three hits, and steel bricks never break.
+A level is cleared when every breakable brick is gone, and cleared levels are
+remembered in the browser's `localStorage`.
+
+Some bricks drop a capsule when they break. Catch it with the paddle:
+
+- **×3** splits the ball into three.
+- **FIRE** lets the ball smash through breakable bricks for a while.
+- **♥** gives an extra life (or points once lives are full).
+- **FAST** speeds the ball up for a while.
+- **GUN** puts cannons on the paddle: hold Space to shoot.
+
+You lose a life when the last ball falls out, which also ends any active bonus.
+
+## Development
 
 ```bash
-make install
+make install        # create the virtual environment and install the pre-commit hooks
+make check          # lock file, pre-commit (ruff), ty, deptry
+make test           # pytest, coverage must stay at 100%
+make docs           # serve the documentation (make docs-test builds it strictly)
 ```
 
-This will also generate your `uv.lock` file
+The game lives in `src/webbrick/`:
 
-### 3. Run the pre-commit hooks
+| Module        | Contents                                                        |
+| ------------- | --------------------------------------------------------------- |
+| `config.py`   | layout, tuning and key constants                                |
+| `levels.py`   | level layouts as ASCII grids                                    |
+| `brick.py`, `ball.py`, `powerup.py`, `bonus.py`, `particle.py`, `particles.py` | game objects |
+| `sprite.py`   | off-screen canvases rendered at the display's resolution         |
+| `storage.py`  | cleared levels in `localStorage`                                |
+| `graphics.py` | procedural painters for every sprite                            |
+| `game.py`     | the `Game` class: state machine, physics, bonuses, drawing      |
+| `main.py`     | browser entry point                                             |
 
-Initially, the CI/CD pipeline might be failing due to formatting issues. To resolve those run:
-
-```bash
-uv run pre-commit run -a
-```
-
-### 4. Commit the changes
-
-Lastly, commit the changes made by the two steps above to your repository.
-
-```bash
-git add .
-git commit -m 'Fix formatting issues'
-git push origin main
-```
-
-You are now ready to start development on your project!
-The CI/CD pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
-
-To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
-For activating the automatic documentation with MkDocs/Zensical, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/docs_tool/#deploying-to-github-pages).
-To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/codecov/).
-
-## Releasing a new version
-
-
+The package imports `js` and `pyodide.ffi`, which only exist inside Pyodide.
+The tests (`tests/conftest.py`) replace them with fakes, so the whole game runs
+under plain CPython. When you add or rename a module, also update the `MODULES`
+list in `index.html`.
 
 ---
 

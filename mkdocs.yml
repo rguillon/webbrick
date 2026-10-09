@@ -1,10 +1,10 @@
-site_name: webrick
-repo_url: https://github.com/rguillon/webrick
-site_url: https://rguillon.github.io/webrick
-site_description: Python Web brick breaker
+site_name: webbrick
+repo_url: https://github.com/rguillon/webbrick
+site_url: https://rguillon.github.io/webbrick
+site_description: A brick breaker game in pure Python, running in the browser through Pyodide
 site_author: Renaud Guillon
 edit_uri: edit/main/docs/
-repo_name: rguillon/webrick
+repo_name: rguillon/webbrick
 copyright: Maintained by <a href="https://rguillon.com">rguillon</a>.
 
 nav:
@@ -15,7 +15,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: ["src/webrick"]
+          paths: ["src"]
 theme:
   name: material
   feature:
@@ -41,9 +41,9 @@ theme:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/rguillon/webrick
+      link: https://github.com/rguillon/webbrick
     - icon: fontawesome/brands/python
-      link: https://pypi.org/project/webrick
+      link: https://pypi.org/project/webbrick
 
 markdown_extensions:
   - toc:

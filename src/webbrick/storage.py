@@ -14,7 +14,7 @@ def load_cleared() -> set[int]:
     """Read the set of cleared level indexes from ``localStorage``."""
     try:
         raw = window.localStorage.getItem(STORAGE_KEY)
-    except Exception:  # storage may be blocked (private mode)
+    except Exception:  # noqa: BLE001 - storage may be blocked (private mode)
         return set()
     if not raw:
         return set()

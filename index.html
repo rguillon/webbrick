@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Brick Breaker — Python in the browser</title>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #0b1020;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px 14px;
+      padding: 8px 16px 6px;
+    }
+    h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.08em; }
+    h1 span { color: #93c5fd; font-weight: normal; font-size: 0.85rem; }
+    #status { margin: 0; min-height: 1.2em; font-size: 0.85rem; color: #93c5fd; }
+    /* The stage takes all leftover space; game.py sizes the canvas to fit it.
+       The canvas is absolutely positioned so it never feeds back into the
+       stage's own size. */
+    #stage {
+      flex: 1 1 auto;
+      min-height: 0;
+      position: relative;
+      margin: 0 16px;
+    }
+    canvas {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: #111827;
+      border-radius: 6px;
+      box-shadow: 0 0 0 2px #374151;
+    }
+    .panel {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      padding: 8px 16px 10px;
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+    .panel b { color: #e5e7eb; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BRICK BREAKER <span>game logic written in Python (Pyodide)</span></h1>
+    <p id="status">Loading the Python runtime&hellip;</p>
+  </header>
+  <main id="stage">
+    <canvas id="game" width="480" height="600"></canvas>
+  </main>
+  <div class="panel">
+    <span><b>&larr; &rarr;</b> / <b>A D</b> — move the paddle</span>
+    <span><b>Space / Enter</b> — launch</span>
+    <span><b>P</b> — pause</span>
+    <span><b>R</b> — restart level</span>
+    <span><b>Esc</b> — level menu</span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+  <script>
+    // The game is the Python package in src/brickbreaker/ (this page is served
+    // from the project root). Keep MODULES in sync with the files in that
+    // directory: each one is copied into Pyodide's virtual filesystem before
+    // the package is imported.
+    const PACKAGE = "brickbreaker";
+    const PACKAGE_URL = `src/${PACKAGE}`;
+    const MODULES = [
+      "__init__.py",
+      "brick.py",
+      "config.py",
+      "game.py",
+      "graphics.py",
+      "levels.py",
+      "main.py",
+      "sprite.py",
+      "storage.py",
+    ];
+    const statusEl = document.getElementById("status");
+
+    async function fetchModule(name) {
+      // no-cache revalidates (cheap 304s) so edits show up on reload
+      const response = await fetch(`${PACKAGE_URL}/${name}`, { cache: "no-cache" });
+      if (!response.ok) throw new Error(`HTTP ${response.status} for ${PACKAGE_URL}/${name}`);
+      return [name, await response.text()];
+    }
+
+    async function boot() {
+      try {
+        const [pyodide, sources] = await Promise.all([
+          loadPyodide(),
+          Promise.all(MODULES.map(fetchModule)),
+        ]);
+        statusEl.textContent = "Starting the game…";
+        const dir = `/home/pyodide/${PACKAGE}`;
+        pyodide.FS.mkdirTree(dir);
+        for (const [name, source] of sources) pyodide.FS.writeFile(`${dir}/${name}`, source);
+        await pyodide.runPythonAsync(`
+import importlib, sys
+if "/home/pyodide" not in sys.path:
+    sys.path.insert(0, "/home/pyodide")
+importlib.invalidate_caches()
+from ${PACKAGE}.main import main
+game = main()  # keep a reference so the game isn't garbage-collected
+`);
+        // the game owns the status line from here on (it shows the launch prompt)
+      } catch (error) {
+        statusEl.textContent = "Failed to start: " + error;
+        console.error(error);
+      }
+    }
+    boot();
+  </script>
+</body>
+</html>

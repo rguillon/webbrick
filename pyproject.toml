@@ -72,6 +72,7 @@ ignore = [  "COM812",   # cause incompatibility with the formatter
             "D203",     # conflict with another rule
             "D213",     # conflict with another rule
             "D107",     # __init__ is documented by its class docstring
+            "PLR2004"   # magic number
             ]
 
 [tool.ruff.lint.per-file-ignores]

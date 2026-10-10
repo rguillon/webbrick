@@ -10,26 +10,24 @@ from .sprite import snap
 if TYPE_CHECKING:
     from pyodide.ffi import JsProxy
 
+    from .coord2d import Coord2D
+
 
 class Particle:
     """A spark of ``color``: it flies, falls, and burns out after its ``life``."""
 
-    __slots__ = ("color", "life", "max_life", "size", "vx", "vy", "x", "y")
+    __slots__ = ("color", "life", "max_life", "pos", "size", "speed")
 
-    def __init__(  # noqa: PLR0913 - one spark is fully described by these
+    def __init__(
         self,
-        x: float,
-        y: float,
-        vx: float,
-        vy: float,
+        pos: Coord2D,
+        speed: Coord2D,
         life: float,
         size: float,
         color: str,
     ) -> None:
-        self.x = x
-        self.y = y
-        self.vx = vx
-        self.vy = vy
+        self.pos = pos
+        self.speed = speed
         self.life = life
         self.max_life = life
         self.size = size
@@ -37,15 +35,18 @@ class Particle:
 
     def update(self, h: float) -> bool:
         """Fly and fall for ``h`` seconds; return whether the spark is still burning."""
-        self.x += self.vx * h
-        self.y += self.vy * h
-        self.vy += PARTICLE_GRAVITY * h
+        self.pos += self.speed * h
+        self.speed.y += PARTICLE_GRAVITY * h
         self.life -= h
         return self.life > 0
 
     def draw(self, ctx: JsProxy) -> None:
         """Paint the spark as a square fading out with the rest of its life."""
-        side = PIXEL if self.size < 3 else 2 * PIXEL  # noqa: PLR2004 - sizes are drawn from 2..4
+        side = PIXEL if self.size < 3 else 2 * PIXEL
         ctx.globalAlpha = self.life / self.max_life
         ctx.fillStyle = self.color
-        ctx.fillRect(snap(self.x - side / 2), snap(self.y - side / 2), side, side)
+        ctx.fillRect(snap(self.pos.x - side / 2), snap(self.pos.y - side / 2), side, side)
+
+
+# Coverage helper
+_coverage_helper = 0

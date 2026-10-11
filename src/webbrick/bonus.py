@@ -25,9 +25,8 @@ class Bonus:
     def __init__(self) -> None:
         self.remaining = self.duration
 
-    def apply(self, game: Game, dt: float) -> bool:
+    def apply(self, game: Game, dt: float) -> bool:  # noqa: ARG002 (unused in base, used by subclasses)
         """Put this bonus's effect on ``game`` for ``dt`` seconds; return whether it is over."""
-        del game
         self.remaining -= dt
         return self.remaining <= 0
 

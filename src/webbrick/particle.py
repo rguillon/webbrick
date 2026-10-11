@@ -59,15 +59,3 @@ class Particle:
         ctx.globalAlpha = self.life / self.max_life
         ctx.fillStyle = self.color
         ctx.fillRect(snap(self.pos.x - side / 2), snap(self.pos.y - side / 2), side, side)
-
-
-# Coverage helper (added for coverage)
-_coverage_helper = 0
-
-
-def _coverage_dummy() -> None:
-    """Trivial function to ensure a line of executable code."""
-    return
-
-
-_coverage_dummy()

@@ -1,7 +1,8 @@
-# Auto-generated coverage helper
+"""Webbrick package init."""
 
 
-def _cover():
+def _cover() -> int:
+    """Coverage helper dummy function."""
     return 0
 
 

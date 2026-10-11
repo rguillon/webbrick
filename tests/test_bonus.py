@@ -111,7 +111,7 @@ def test_extra_life_is_converted_to_points(extra_life: Game) -> None:
 
 
 @pytest.fixture
-def pierced(arena: Game, rising: Ball) -> Brick:  # noqa: ARG001 - rising is the ball that smashes it
+def pierced(arena: Game, rising: Ball) -> Brick:
     """Return a three-hit brick, after a piercing ball has gone through it."""
     target = brick(200, 200, hp=3)
     arena.bricks.append(target)
@@ -174,7 +174,7 @@ def base_speed(arena: Game) -> float:
 
 
 @pytest.fixture
-def boosted(arena: Game, base_speed: float) -> Ball:  # noqa: ARG001 - base_speed must be read before the boost
+def boosted(arena: Game, base_speed: float) -> Ball:
     """Return a ball in flight when ``speed`` is collected."""
     ball = Ball(240, 300, 0, -300)
     arena.balls = [ball]

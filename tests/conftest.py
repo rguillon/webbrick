@@ -129,7 +129,7 @@ js = sys.modules["js"]
 @pytest.fixture
 def rng() -> random.Random:
     """Return a seeded RNG, so tests draw the same sparks on every run."""
-    return random.Random(0)  # noqa: S311 - deterministic gameplay in tests
+    return random.Random(0)
 
 
 @pytest.fixture
@@ -141,9 +141,9 @@ def window() -> FakeWindow:
 
 
 @pytest.fixture
-def game(window: FakeWindow, rng: random.Random) -> Game:  # noqa: ARG001 - window resets js.window before main()
+def game(window: FakeWindow, rng: random.Random) -> Game:
     """Return a started game with a seeded RNG, still on the level menu."""
-    from webbrick.main import main  # noqa: PLC0415 - needs the js stubs installed first
+    from webbrick.main import main
 
     started = main()
     started.rng = rng

@@ -18,4 +18,4 @@ def test_main_starts_the_animation_loop(monkeypatch: pytest.MonkeyPatch) -> None
     callbacks: list[object] = []
     monkeypatch.setattr(main_module, "requestAnimationFrame", callbacks.append)
     started = main_module.main()
-    assert callbacks == [started._frame_proxy]
+    assert callbacks == [started.frame_proxy]

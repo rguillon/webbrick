@@ -16,5 +16,5 @@ def main() -> Game:
     """
     game = Game()
     game.bind()
-    requestAnimationFrame(game._frame_proxy)  # noqa: SLF001
+    requestAnimationFrame(game.frame_proxy)
     return game

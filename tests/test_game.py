@@ -457,7 +457,7 @@ def test_paddle_bounce_angle_depends_on_where_it_hits(arena: Game, offset: float
 
 
 @pytest.fixture
-def tough(arena: Game, rising: Ball) -> Brick:  # noqa: ARG001 - rising is the ball that hits it
+def tough(arena: Game, rising: Ball) -> Brick:
     """Return a two-hit brick, after the rising ball has hit it."""
     target = brick(200, 200, hp=2)
     arena.bricks.append(target)
@@ -484,7 +484,7 @@ def test_hitting_a_brick_scores(arena: Game) -> None:
 
 
 @pytest.fixture
-def steel(arena: Game, rising: Ball) -> Brick:  # noqa: ARG001 - rising is the ball that hits it
+def steel(arena: Game, rising: Ball) -> Brick:
     """Return a steel brick, after the rising ball has hit it."""
     target = brick(200, 200, hp=0, solid=True)
     arena.bricks.append(target)
@@ -687,8 +687,8 @@ def test_resize_keeps_the_sprites(game: Game, window: FakeWindow) -> None:
 def full_text_cache(game: Game) -> Game:
     """Fill the text cache to its limit, then draw one more string."""
     for i in range(TEXT_CACHE_SIZE):
-        game._text(str(i), 0, 0, "#ffffff")
-    game._text("one more", 0, 0, "#ffffff")
+        game._text(str(i), (0, 0), "#ffffff")
+    game._text("one more", (0, 0), "#ffffff")
     return game
 
 
@@ -697,7 +697,7 @@ def test_text_cache_is_emptied_when_full(full_text_cache: Game) -> None:
 
 
 def test_cached_text_is_reused(game: Game) -> None:
-    game._text("again", 0, 0, "#ffffff")
+    game._text("again", (0, 0), "#ffffff")
     sprite = game._text_sprites["again", "#ffffff"]
-    game._text("again", 0, 0, "#ffffff")
+    game._text("again", (0, 0), "#ffffff")
     assert game._text_sprites["again", "#ffffff"] is sprite

@@ -6,6 +6,7 @@ import math
 from typing import TYPE_CHECKING
 
 from .config import MAX_PARTICLES
+from .coord2d import Coord2D
 from .particle import Particle
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ class Particles:
             vy = speed * math.sin(angle)
             life = 1.0  # ensure all die within 1s for test consistency
             size = 1
-            self._sparks.append(Particle(x, y, vx, vy, life, size, color))
+            self._sparks.append(Particle(Coord2D(x, y), Coord2D(vx, vy), life, size, color))
         if len(self._sparks) > MAX_PARTICLES:
             self._sparks = self._sparks[-MAX_PARTICLES:]
 

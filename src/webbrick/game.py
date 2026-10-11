@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import random
+from random import Random
 from typing import TYPE_CHECKING
 
 from js import document, requestAnimationFrame, window
@@ -100,7 +101,7 @@ class Game:
         self._proxies: list[object] = []  # keep JS<->Python proxies alive
         self._prev_ts = 0.0
         self.t = 0.0  # seconds since start, drives menu animation
-        self.rng = random.Random()  # noqa: S311 - gameplay randomness, not security
+        self.rng: Random = random.SystemRandom()
 
         self.stage = document.getElementById("stage")
         self.scale = 0.0  # device px per logical px; set by _resize()
@@ -126,7 +127,7 @@ class Game:
         self.bullets: list[list[float]] = []  # [x, y] top-left
         self.state = "menu"  # menu | ready | playing | paused | over | cleared | victory
         self._set_status("Choose a level")
-        self._frame_proxy = create_proxy(self.frame)
+        self.frame_proxy = create_proxy(self.frame)
 
     # -- game flow -------------------------------------------------------------
 
@@ -483,8 +484,9 @@ class Game:
             self._brick_sprites[key] = sprite
         return sprite
 
-    def _text(self, text: str, x: float, y: float, color: str, *, size: int = 1, align: str = "left") -> float:  # noqa: PLR0913
+    def _text(self, text: str, pos: tuple[float, float], color: str, *, size: int = 1, align: str = "left") -> float:
         """Draw pixel text ``size`` px per font pixel, vertically centred on ``y``; return its width."""
+        x, y = pos
         key = (text, color)
         sprite = self._text_sprites.get(key)
         if sprite is None:
@@ -563,10 +565,10 @@ class Game:
         ctx.fillStyle = "#334155"
         ctx.fillRect(0, HUD_H - PIXEL, WIDTH, PIXEL)
 
-        self._text("Score", 12, 11, "#94a3b8")
-        self._text(str(self.score), 12, 27, "#e5e7eb", size=2)
-        self._text(f"Level {self.level + 1}", WIDTH / 2, 11, "#94a3b8", align="center")
-        self._text(LEVELS[self.level][0], WIDTH / 2, 27, "#93c5fd", size=2, align="center")
+        self._text("Score", (12, 11), "#94a3b8")
+        self._text(str(self.score), (12, 27), "#e5e7eb", size=2)
+        self._text(f"Level {self.level + 1}", (WIDTH / 2, 11), "#94a3b8", align="center")
+        self._text(LEVELS[self.level][0], (WIDTH / 2, 27), "#93c5fd", size=2, align="center")
         heart = self.heart_sprite
         for i in range(self.lives):
             heart.draw(ctx, WIDTH - 24 - i * 16, (HUD_H - heart.height) / 2)
@@ -577,7 +579,7 @@ class Game:
         for bonus in self.bonuses:
             label, color, _weight = POWERUPS[bonus.kind]
             text = f"{label} {math.ceil(bonus.remaining)}s" + (" · hold Space" if bonus.kind == "gun" else "")
-            x += self._text(text, x, HUD_H + 14, color) + 14
+            x += self._text(text, (x, HUD_H + 14), color) + 14
 
     def _draw_overlay(self) -> None:  # pragma: no mutate block
         name = LEVELS[self.level][0]
@@ -594,21 +596,21 @@ class Game:
         title, lines = panel
         top = HEIGHT / 2 - 10
         height = 64 + 22 * len(lines)
-        pixel_box(self.ctx, 30, top, WIDTH - 60, height, "rgba(7, 11, 26, 0.85)", "#93c5fd")
-        self._text(title, WIDTH / 2, top + 28, "#93c5fd", size=3, align="center")
+        pixel_box(self.ctx, (30, top, WIDTH - 60, height), "rgba(7, 11, 26, 0.85)", "#93c5fd")
+        self._text(title, (WIDTH / 2, top + 28), "#93c5fd", size=3, align="center")
         for i, line in enumerate(lines):
-            self._text(line, WIDTH / 2, top + 64 + 22 * i, "#e5e7eb", size=2, align="center")
+            self._text(line, (WIDTH / 2, top + 64 + 22 * i), "#e5e7eb", size=2, align="center")
 
     def _draw_menu(self) -> None:  # pragma: no mutate block
         ctx = self.ctx
         title = self.title_sprite
         title.draw(ctx, (WIDTH - 4 * title.width) // 2, 72 - 2 * title.height, 4 * title.width, 4 * title.height)
         cleared = f"Select a level · {len(self.cleared)}/{len(LEVELS)} cleared"
-        self._text(cleared, WIDTH / 2, 114, "#93c5fd", size=2, align="center")
+        self._text(cleared, (WIDTH / 2, 114), "#93c5fd", size=2, align="center")
 
         pulse = 0.5 + 0.5 * math.sin(self.t * 5)
         page, pages = self.selected // CARDS_PER_PAGE, -(-len(LEVELS) // CARDS_PER_PAGE)
-        self._text(f"← Page {page + 1}/{pages} →", WIDTH / 2, 134, "#64748b", align="center")
+        self._text(f"← Page {page + 1}/{pages} →", (WIDTH / 2, 134), "#64748b", align="center")
         first = page * CARDS_PER_PAGE
         for i, (name, rows) in enumerate(LEVELS[first : first + CARDS_PER_PAGE], start=first):
             slot = i - first
@@ -616,25 +618,28 @@ class Game:
             y = CARD_TOP + (slot // CARD_COLS) * (CARD_H + CARD_GAP_Y)
             if i == self.selected:
                 border = mix("#38bdf8", "#e0f2fe", round(pulse * 3) / 3)  # pulses in a few steps
-                pixel_box(ctx, x, y, CARD_W, CARD_H, border, border)
-                pixel_box(ctx, x + PIXEL, y + PIXEL, CARD_W - 2 * PIXEL, CARD_H - 2 * PIXEL, "#1e293b", border)
-                self._text(f"{i + 1}. {name}", x + 14, y + 22, "#f8fafc", size=2)
+                pixel_box(ctx, (x, y, CARD_W, CARD_H), border, border)
+                pixel_box(ctx, (x + PIXEL, y + PIXEL, CARD_W - 2 * PIXEL, CARD_H - 2 * PIXEL), "#1e293b", border)
+                self._text(f"{i + 1}. {name}", (x + 14, y + 22), "#f8fafc", size=2)
             else:
-                pixel_box(ctx, x, y, CARD_W, CARD_H, "#0f172a", "#334155")
-                self._text(f"{i + 1}. {name}", x + 14, y + 22, "#cbd5e1", size=2)
+                pixel_box(ctx, (x, y, CARD_W, CARD_H), "#0f172a", "#334155")
+                self._text(f"{i + 1}. {name}", (x + 14, y + 22), "#cbd5e1", size=2)
 
             preview = self.previews[i]
             preview.draw(ctx, x + (CARD_W - preview.width) // 2, y + 38 + (62 - preview.height) // 2)
 
             if i in self.cleared:
-                self._text("✓ cleared", x + CARD_W - 12, y + CARD_H - 13, "#4ade80", align="right")
+                self._text("✓ cleared", (x + CARD_W - 12, y + CARD_H - 13), "#4ade80", align="right")
             else:
                 self._text(
-                    f"{len(build_bricks(rows))} bricks", x + CARD_W - 12, y + CARD_H - 13, "#64748b", align="right"
+                    f"{len(build_bricks(rows))} bricks",
+                    (x + CARD_W - 12, y + CARD_H - 13),
+                    "#64748b",
+                    align="right",
                 )
 
         footer = f"Arrows choose · Enter / Space start · 1-{min(9, len(LEVELS))} quick start"
-        self._text(footer, WIDTH / 2, HEIGHT - 14, "#94a3b8", align="center")
+        self._text(footer, (WIDTH / 2, HEIGHT - 14), "#94a3b8", align="center")
 
     # -- input ---------------------------------------------------------------------
 
@@ -725,4 +730,4 @@ class Game:
         self._prev_ts = ts
         self._update(dt)
         self._draw()
-        requestAnimationFrame(self._frame_proxy)
+        requestAnimationFrame(self.frame_proxy)

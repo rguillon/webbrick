@@ -16,6 +16,7 @@ class Ball:
 
     @property
     def x(self) -> float:
+        """Return the current x-coordinate."""
         return self.pos.x
 
     @x.setter
@@ -24,6 +25,7 @@ class Ball:
 
     @property
     def y(self) -> float:
+        """Return the current y-coordinate."""
         return self.pos.y
 
     @y.setter
@@ -32,6 +34,7 @@ class Ball:
 
     @property
     def dx(self) -> float:
+        """Return the current horizontal velocity component."""
         return self.vel.x
 
     @dx.setter
@@ -40,6 +43,7 @@ class Ball:
 
     @property
     def dy(self) -> float:
+        """Return the current vertical velocity component."""
         return self.vel.y
 
     @dy.setter
@@ -102,5 +106,3 @@ class Ball:
         """Face ``angle`` from straight up, travelling at ``speed`` px/s."""
         self.vel.x = speed * math.sin(angle)
         self.vel.y = -speed * math.cos(angle)
-
-

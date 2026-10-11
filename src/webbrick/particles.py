@@ -6,7 +6,6 @@ import math
 from typing import TYPE_CHECKING
 
 from .config import MAX_PARTICLES
-from .coord2d import Coord2D
 from .particle import Particle
 
 if TYPE_CHECKING:
@@ -31,8 +30,8 @@ class Particles:
         """Return the number of sparks currently on the screen."""
         return len(self._sparks)
 
-    def burst(self, pos: Coord2D, color: str, count: int) -> None:
-        """Throw ``count`` sparks of ``color`` from ``pos`` in random directions."""
+    def burst(self, x: float, y: float, color: str, count: int) -> None:
+        """Throw ``count`` sparks of ``color`` from ``(x, y)`` in random directions."""
         for _ in range(count):
             angle = self._rng.uniform(0, 2 * math.pi)
             speed = self._rng.uniform(0.35, 0.58) * 300
@@ -40,7 +39,7 @@ class Particles:
             vy = speed * math.sin(angle)
             life = 1.0  # ensure all die within 1s for test consistency
             size = 1
-            self._sparks.append(Particle(pos, Coord2D(vx, vy), life, size, color))
+            self._sparks.append(Particle(x, y, vx, vy, life, size, color))
         if len(self._sparks) > MAX_PARTICLES:
             self._sparks = self._sparks[-MAX_PARTICLES:]
 

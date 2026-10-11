@@ -11,37 +11,47 @@ from .coord2d import Coord2D
 class Ball:
     """One ball: position, velocity (px/s), its motion trail, and whether it burns."""
 
-    __slots__ = ("fire", "pos", "trail", "vel")
-
     COLOR = "#7dd3fc"  # trail colour while cool
     FIRE_COLOR = "#f97316"  # trail colour while on fire
 
+    @property
+    def x(self) -> float:
+        return self.pos.x
+
+    @x.setter
+    def x(self, value: float) -> None:
+        self.pos.x = value
+
+    @property
+    def y(self) -> float:
+        return self.pos.y
+
+    @y.setter
+    def y(self, value: float) -> None:
+        self.pos.y = value
+
+    @property
+    def dx(self) -> float:
+        return self.vel.x
+
+    @dx.setter
+    def dx(self, value: float) -> None:
+        self.vel.x = value
+
+    @property
+    def dy(self) -> float:
+        return self.vel.y
+
+    @dy.setter
+    def dy(self, value: float) -> None:
+        self.vel.y = value
+
     def __init__(self, x: float, y: float, dx: float = 0.0, dy: float = 0.0, *, fire: bool = False) -> None:
-        # Expose legacy flat attributes for compatibility with tests.
+        """Expose legacy flat attributes for compatibility with tests."""
         self.pos = Coord2D(x, y)
         self.vel = Coord2D(dx, dy)
         self.fire = fire
         self.trail: list[tuple[float, float]] = []
-
-    @property
-    def pos(self) -> Coord2D:
-        """Return the position of the ball."""
-        return self.pos
-
-    @pos.setter
-    def pos(self, pos: Coord2D) -> None:
-        """Set the position of the ball."""
-        self.pos = pos
-
-    @property
-    def vel(self) -> Coord2D:
-        """Return the velocity of the ball."""
-        return self.vel
-
-    @vel.setter
-    def vel(self, vel: Coord2D) -> None:
-        """Set the velocity of the ball."""
-        self.vel = vel
 
     def update(self, h: float) -> None:
         """Move on for ``h`` seconds, remembering where the ball has been."""
@@ -94,5 +104,3 @@ class Ball:
         self.vel.y = -speed * math.cos(angle)
 
 
-# Coverage helper
-_coverage_helper = 0

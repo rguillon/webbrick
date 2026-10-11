@@ -161,7 +161,7 @@ def test_pierce_paints_the_ball_fiery(arena: Game) -> None:
 def test_pierce_puts_the_balls_out_when_it_is_over(arena: Game) -> None:
     arena._collect(PowerUp(0, 0, "pierce"))
     arena._update_bonuses(PIERCE_TIME + 0.1)
-    assert not arena.balls[0].fire
+    assert arena.balls[0].fire is False
 
 
 # -- speed ----------------------------------------------------------------------------
@@ -249,3 +249,14 @@ def test_a_worn_off_bonus_is_dropped(arena: Game, kind: str, seconds: float) -> 
     arena._add_bonus(kind)
     arena._update_bonuses(seconds + 0.1)
     assert arena.bonuses == []
+
+
+def test_bonus_is_over_when_remaining_hits_zero_exactly(arena: Game) -> None:
+    """Test the boundary: remaining == 0 means bonus is over."""
+    arena._add_bonus("pierce")  # PIERCE_TIME = 10.0
+    # First update: remaining = 10.0 - 5.0 = 5.0 (not over)
+    arena._update_bonuses(5.0)
+    assert arena.has_bonus("pierce")
+    # Second update: remaining = 5.0 - 5.0 = 0.0 (should be over)
+    arena._update_bonuses(5.0)
+    assert not arena.has_bonus("pierce")

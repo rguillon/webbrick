@@ -109,4 +109,6 @@ source_paths = ["src/webbrick/"]
 do_not_mutate = [  # drawing only: the tests check it runs, not what it paints
     "src/webbrick/graphics.py",
     "src/webbrick/sprite.py",
+    "src/webbrick/particle.py",
+    "src/webbrick/particles.py",
 ]

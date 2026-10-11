@@ -58,3 +58,10 @@ def test_coord2d_isub() -> None:
     b = Coord2D(1.0, 2.0)
     a -= b
     assert (a.x, a.y) == (2.0, 2.0)
+
+
+def test_coord2d_isub_with_different_y() -> None:
+    a = Coord2D(3.0, 5.0)
+    b = Coord2D(1.0, 2.0)
+    a -= b
+    assert (a.x, a.y) == (2.0, 3.0)

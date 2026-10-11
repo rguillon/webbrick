@@ -42,6 +42,16 @@ def test_the_trail_is_capped() -> None:
     assert len(ball.trail) == TRAIL_LEN
 
 
+def test_the_trail_removes_oldest_entry() -> None:
+    ball = Ball(100, 100, 100)
+    for _ in range(TRAIL_LEN + 1):
+        ball.update(0.5)
+    # After TRAIL_LEN+1 updates, the first position (150, 100) should be gone
+    # and the trail should contain the last TRAIL_LEN positions
+    assert ball.trail[0] == (150.0 + 100 * 0.5, 100.0)  # second position
+    assert ball.trail[-1] == (150.0 + 100 * 0.5 * TRAIL_LEN, 100.0)  # last position
+
+
 def test_a_bounce_off_a_side_wall_turns_the_ball_around() -> None:
     ball = Ball(100, 100, 300)
     ball.bounce_x(40)

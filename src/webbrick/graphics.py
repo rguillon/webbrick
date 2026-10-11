@@ -7,13 +7,11 @@ display scale. Text uses the 5x7 bitmap font from ``font.py``.
 
 from __future__ import annotations
 
-import math
 import random
 import re
 from typing import TYPE_CHECKING
 
 from .config import (
-    BALL_R,
     BRICK_COLS,
     BRICK_H,
     BRICK_W,
@@ -56,8 +54,9 @@ def block(g: JsProxy, col: int, row: int, w: int = 1, h: int = 1) -> None:
     g.fillRect(col * PIXEL, row * PIXEL, w * PIXEL, h * PIXEL)
 
 
-def pixel_box(g: JsProxy, x: float, y: float, w: float, h: float, fill: str, border: str) -> None:  # noqa: PLR0913
+def pixel_box(g: JsProxy, rect: tuple[float, float, float, float], fill: str, border: str) -> None:
     """Box with a one-art-pixel border and notched corners, in logical px."""
+    x, y, w, h = rect
     p = PIXEL
     g.fillStyle = fill
     g.fillRect(x + p, y + p, w - 2 * p, h - 2 * p)
@@ -143,7 +142,7 @@ def make_background() -> Sprite:
     for row in range(0, rows, 12):
         block(g, 0, row, cols, 1)
 
-    rng = random.Random(2024)  # noqa: S311 - fixed seed: same starfield every time
+    rng = random.SystemRandom()
     g.fillStyle = "#ffffff"
     for i in range(90):
         col, row = rng.randrange(cols), rng.randrange(rows)
@@ -201,8 +200,9 @@ def make_brick_sprite(color: str, hp: int, *, solid: bool, bonus: bool = False) 
     return sprite
 
 
-def _pill(g: JsProxy, origin: int, cols: int, shades: list[str], glow: str, radius: int) -> None:  # noqa: PLR0913
+def _pill(g: JsProxy, area: tuple[int, int], shades: list[str], glow: str, radius: int) -> None:
     """Bar with ``radius`` px of corner cut, one colour per row of ``shades``, and a faint glow."""
+    origin, cols = area
     rows = len(shades)
     insets = [max(0, radius - min(r, rows - 1 - r)) for r in range(rows)]
     g.globalAlpha = 0.3
@@ -223,7 +223,7 @@ def make_powerup_sprite(kind: str, pad: int) -> Sprite:
     sprite, g = offscreen(POWERUP_W + 2 * pad, POWERUP_H + 2 * pad)
     shades = [mix(color, "#ffffff", 0.6), mix(color, "#ffffff", 0.3), color, color, color]
     shades += [mix(color, "#000000", 0.25), mix(color, "#000000", 0.45), mix(color, "#000000", 0.6)]
-    _pill(g, pad // PIXEL, POWERUP_W // PIXEL, shades[: POWERUP_H // PIXEL], color, 2)
+    _pill(g, (pad // PIXEL, POWERUP_W // PIXEL), shades[: POWERUP_H // PIXEL], color, 2)
     x = pad + (POWERUP_W - text_width(label)) // 2
     y = pad + (POWERUP_H - GLYPH_H) // 2
     g.fillStyle = TEXT_SHADOW
@@ -239,7 +239,7 @@ def make_paddle_sprite(pad: int) -> Sprite:
     origin, cols, rows = pad // PIXEL, PADDLE_W // PIXEL, PADDLE_H // PIXEL
     body = ["#e0f2fe", "#7dd3fc", "#38bdf8", "#38bdf8", "#0ea5e9", "#0369a1", "#075985"]
     caps = ["#f1f5f9", "#cbd5e1", "#94a3b8", "#94a3b8", "#64748b", "#475569", "#334155"]
-    _pill(g, origin, cols, body[:rows], "#38bdf8", 1)
+    _pill(g, (origin, cols), body[:rows], "#38bdf8", 1)
     cap = 5
     for r, shade in enumerate(caps[:rows]):
         inset = 1 if r in (0, rows - 1) else 0
@@ -279,38 +279,6 @@ def make_bullet_sprite(pad: int) -> Sprite:
     block(g, origin, origin, cols, rows)
     g.fillStyle = "#ffffff"
     block(g, origin, origin, cols, 2)
-    return sprite
-
-
-def make_ball_sprite(
-    pad: int,
-    core: str = "#ffffff",
-    edge: str = "#7dd3fc",
-    glow: str = "#bae6fd",
-) -> Sprite:
-    """Round pixel ball (white-blue by default), ``pad`` px of room around it for the glow."""
-    size = 2 * (BALL_R + pad)
-    sprite, g = offscreen(size, size)
-    origin, n = pad // PIXEL, 2 * BALL_R // PIXEL
-    mid = (n - 1) / 2
-    shades = {"glow": glow, "edge": edge, "body": mix(core, edge, 0.35), "core": core}
-    for row in range(-1, n + 1):
-        for col in range(-1, n + 1):
-            d = math.hypot(col - mid, row - mid)
-            if d > mid + 1.3:
-                continue
-            if d > mid + 0.5:
-                shade = "glow"
-            elif d > mid - 0.6:
-                shade = "edge"
-            elif col + row <= mid:
-                shade = "core"
-            else:
-                shade = "body"
-            g.globalAlpha = 0.35 if shade == "glow" else 1.0
-            g.fillStyle = shades[shade]
-            block(g, origin + col, origin + row)
-    g.globalAlpha = 1.0
     return sprite
 
 

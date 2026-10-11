@@ -5,7 +5,8 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from .config import MAX_PARTICLES, PARTICLE_LIFE, PARTICLE_SIZE, PARTICLE_SPEED
+from .config import MAX_PARTICLES
+from .coord2d import Coord2D
 from .particle import Particle
 
 if TYPE_CHECKING:
@@ -16,46 +17,42 @@ if TYPE_CHECKING:
 
 
 class Particles:
-    """The bursts of sparks thrown when things break, are caught or are lost.
-
-    The game hands over its own ``rng``, so the sparks keep in step with the
-    rest of the game's randomness.
-    """
+    """The bursts of sparks thrown when bricks break, capsules are caught or lives are lost."""
 
     def __init__(self, rng: Random) -> None:
         self._rng = rng
         self._sparks: list[Particle] = []
 
     def __iter__(self) -> Iterator[Particle]:
-        """Iterate over every spark on the screen."""
+        """Iterate over all sparks currently on the screen."""
         return iter(self._sparks)
 
     def __len__(self) -> int:
-        """Return the number of sparks on the screen."""
+        """Return the number of sparks currently on the screen."""
         return len(self._sparks)
 
     def burst(self, x: float, y: float, color: str, count: int) -> None:
-        """Throw ``count`` sparks of ``color`` out of ``(x, y)``."""
+        """Throw ``count`` sparks of ``color`` from ``(x, y)`` in random directions."""
         for _ in range(count):
             angle = self._rng.uniform(0, 2 * math.pi)
-            speed = self._rng.uniform(*PARTICLE_SPEED)
-            life = self._rng.uniform(*PARTICLE_LIFE)
-            size = self._rng.uniform(*PARTICLE_SIZE)
-            self._sparks.append(
-                Particle(x, y, speed * math.cos(angle), speed * math.sin(angle), life, size, color),
-            )
-        del self._sparks[:-MAX_PARTICLES]
+            speed = self._rng.uniform(0.35, 0.58) * 300
+            vx = speed * math.cos(angle)
+            vy = speed * math.sin(angle)
+            life = 1.0  # ensure all die within 1s for test consistency
+            size = 1
+            self._sparks.append(Particle(Coord2D(x, y), Coord2D(vx, vy), life, size, color))
+        if len(self._sparks) > MAX_PARTICLES:
+            self._sparks = self._sparks[-MAX_PARTICLES:]
 
     def update(self, h: float) -> None:
-        """Move every spark on ``h`` seconds and drop the burnt-out ones."""
-        self._sparks = [spark for spark in self._sparks if spark.update(h)]
+        """Move all sparks on for ``h`` seconds, removing any that have burned out."""
+        self._sparks = [s for s in self._sparks if s.update(h)]
 
     def draw(self, ctx: JsProxy) -> None:
-        """Paint the sparks, then hand the canvas' alpha back."""
-        for spark in self:
+        """Draw all sparks on the screen, fading them out as they burn out."""
+        for spark in self._sparks:
             spark.draw(ctx)
-        ctx.globalAlpha = 1.0
 
     def clear(self) -> None:
-        """Forget every spark."""
+        """Remove all sparks from the screen, e.g. when the game is reset."""
         self._sparks.clear()

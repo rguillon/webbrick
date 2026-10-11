@@ -30,6 +30,11 @@ def test_rows_are_spaced_by_height_and_gap(bricks: list[Brick]) -> None:
     assert bricks[2].y == BRICK_TOP + BRICK_H + BRICK_GAP
 
 
+def test_steel_brick_x_position_is_computed(bricks: list[Brick]) -> None:
+    # steel brick is at column 1 (middle) of row 1
+    assert bricks[2].x == SIDE_MARGIN + 1 * (BRICK_W + BRICK_GAP)
+
+
 def test_bricks_take_their_row_colour(bricks: list[Brick]) -> None:
     assert bricks[0].color == ROW_COLORS[0]
 

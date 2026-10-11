@@ -1,4 +1,4 @@
-"""The bonuses a caught capsule puts on the game: multi, life, pierce, speed and gun."""
+"""The bonuses a caught capsule puts on the game: multi, life, pierce, speed, gun and bigball."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from webbrick import game as game_module
 from webbrick.ball import Ball
 from webbrick.bonus import BONUSES
 from webbrick.config import (
+    BALL_R,
+    BIG_BALL_TIME,
     GUN_TIME,
     LIFE_POINTS,
     MAX_LIVES,
@@ -111,7 +113,7 @@ def test_extra_life_is_converted_to_points(extra_life: Game) -> None:
 
 
 @pytest.fixture
-def pierced(arena: Game, rising: Ball) -> Brick:  # noqa: ARG001 - rising is the ball that smashes it
+def pierced(arena: Game, rising: Ball) -> Brick:
     """Return a three-hit brick, after a piercing ball has gone through it."""
     target = brick(200, 200, hp=3)
     arena.bricks.append(target)
@@ -161,7 +163,7 @@ def test_pierce_paints_the_ball_fiery(arena: Game) -> None:
 def test_pierce_puts_the_balls_out_when_it_is_over(arena: Game) -> None:
     arena._collect(PowerUp(0, 0, "pierce"))
     arena._update_bonuses(PIERCE_TIME + 0.1)
-    assert not arena.balls[0].fire
+    assert arena.balls[0].fire is False
 
 
 # -- speed ----------------------------------------------------------------------------
@@ -174,7 +176,7 @@ def base_speed(arena: Game) -> float:
 
 
 @pytest.fixture
-def boosted(arena: Game, base_speed: float) -> Ball:  # noqa: ARG001 - base_speed must be read before the boost
+def boosted(arena: Game, base_speed: float) -> Ball:
     """Return a ball in flight when ``speed`` is collected."""
     ball = Ball(240, 300, 0, -300)
     arena.balls = [ball]
@@ -249,3 +251,58 @@ def test_a_worn_off_bonus_is_dropped(arena: Game, kind: str, seconds: float) -> 
     arena._add_bonus(kind)
     arena._update_bonuses(seconds + 0.1)
     assert arena.bonuses == []
+
+
+def test_bonus_is_over_when_remaining_hits_zero_exactly(arena: Game) -> None:
+    """Test the boundary: remaining == 0 means bonus is over."""
+    arena._add_bonus("pierce")  # PIERCE_TIME = 10.0
+    # First update: remaining = 10.0 - 5.0 = 5.0 (not over)
+    arena._update_bonuses(5.0)
+    assert arena.has_bonus("pierce")
+    # Second update: remaining = 5.0 - 5.0 = 0.0 (should be over)
+    arena._update_bonuses(5.0)
+    assert not arena.has_bonus("pierce")
+
+
+# -- bigball ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def bigball(arena: Game, base_speed: float) -> Ball:
+    """Return a ball in flight when ``bigball`` is collected."""
+    ball = Ball(240, 300, 0, -300)
+    arena.balls = [ball]
+    arena._collect(PowerUp(0, 0, "bigball"))
+    return ball
+
+
+def test_bigball_doubles_ball_radius(arena: Game, bigball: Ball) -> None:
+    assert bigball.radius == pytest.approx(BALL_R * 2)
+
+
+def test_bigball_doubles_parked_ball_radius(arena: Game) -> None:
+    arena._collect(PowerUp(0, 0, "bigball"))
+    assert arena.balls[0].radius == pytest.approx(BALL_R * 2)
+
+
+def test_bigball_wearing_off_restores_radius(arena: Game, bigball: Ball) -> None:
+    arena._update_bonuses(BIG_BALL_TIME + 0.1)
+    assert bigball.radius == pytest.approx(BALL_R)
+
+
+def test_bigball_wearing_off_restores_launch_radius(arena: Game) -> None:
+    arena._collect(PowerUp(0, 0, "bigball"))
+    arena._update_bonuses(BIG_BALL_TIME + 0.1)
+    assert arena.balls[0].radius == pytest.approx(BALL_R)
+
+
+def test_bigball_lasts_its_time(arena: Game) -> None:
+    arena._collect(PowerUp(0, 0, "bigball"))
+    arena._update_bonuses(BIG_BALL_TIME - 0.1)
+    assert arena.has_bonus("bigball")
+
+
+def test_bigball_wears_off(arena: Game) -> None:
+    arena._collect(PowerUp(0, 0, "bigball"))
+    arena._update_bonuses(BIG_BALL_TIME + 0.1)
+    assert not arena.has_bonus("bigball")

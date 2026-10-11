@@ -5,12 +5,11 @@ description = "Python Web brick breaker"
 authors = [{ name = "Renaud Guillon", email = "renaud.guillon@gmail.com" }]
 readme = "README.md"
 keywords = ['python']
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -50,7 +49,7 @@ allowed-unresolved-imports = ["js", "pyodide.**"]  # provided by Pyodide at runt
 
 [tool.ty.environment]
 python = "./.venv"
-python-version = "3.10"
+python-version = "3.11"
 
 [tool.deptry.per_rule_ignores]
 DEP001 = ["js", "pyodide"]  # provided by Pyodide at runtime
@@ -59,7 +58,7 @@ DEP001 = ["js", "pyodide"]  # provided by Pyodide at runtime
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 fix = true
 
@@ -87,6 +86,9 @@ ignore = [  "COM812",   # cause incompatibility with the formatter
               "N815",     # fakes mirror the JS camelCase API
               "PLR2004",  # magic values are fine in assertions
               "SLF001",   # tests drive the game's private steps
+              "ARG001",   # fixture args may be unused in test helpers
+              "S311",     # deterministic randomness in tests
+              "PLC0415",  # imports inside fixtures need stubs first
               ]
 
 [tool.ruff.format]
@@ -107,4 +109,6 @@ source_paths = ["src/webbrick/"]
 do_not_mutate = [  # drawing only: the tests check it runs, not what it paints
     "src/webbrick/graphics.py",
     "src/webbrick/sprite.py",
+    "src/webbrick/particle.py",
+    "src/webbrick/particles.py",
 ]

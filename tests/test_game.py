@@ -457,7 +457,7 @@ def test_paddle_bounce_angle_depends_on_where_it_hits(arena: Game, offset: float
 
 
 @pytest.fixture
-def tough(arena: Game, rising: Ball) -> Brick:  # noqa: ARG001 - rising is the ball that hits it
+def tough(arena: Game, rising: Ball) -> Brick:
     """Return a two-hit brick, after the rising ball has hit it."""
     target = brick(200, 200, hp=2)
     arena.bricks.append(target)
@@ -484,7 +484,7 @@ def test_hitting_a_brick_scores(arena: Game) -> None:
 
 
 @pytest.fixture
-def steel(arena: Game, rising: Ball) -> Brick:  # noqa: ARG001 - rising is the ball that hits it
+def steel(arena: Game, rising: Ball) -> Brick:
     """Return a steel brick, after the rising ball has hit it."""
     target = brick(200, 200, hp=0, solid=True)
     arena.bricks.append(target)
@@ -687,8 +687,8 @@ def test_resize_keeps_the_sprites(game: Game, window: FakeWindow) -> None:
 def full_text_cache(game: Game) -> Game:
     """Fill the text cache to its limit, then draw one more string."""
     for i in range(TEXT_CACHE_SIZE):
-        game._text(str(i), 0, 0, "#ffffff")
-    game._text("one more", 0, 0, "#ffffff")
+        game._text(str(i), (0, 0), "#ffffff")
+    game._text("one more", (0, 0), "#ffffff")
     return game
 
 
@@ -697,7 +697,188 @@ def test_text_cache_is_emptied_when_full(full_text_cache: Game) -> None:
 
 
 def test_cached_text_is_reused(game: Game) -> None:
-    game._text("again", 0, 0, "#ffffff")
+    game._text("again", (0, 0), "#ffffff")
     sprite = game._text_sprites["again", "#ffffff"]
-    game._text("again", 0, 0, "#ffffff")
+    game._text("again", (0, 0), "#ffffff")
     assert game._text_sprites["again", "#ffffff"] is sprite
+
+
+# -- bullet edge cases -----------------------------------------------------------------
+
+
+def test_bullet_draw_with_no_sprite(arena: Game) -> None:
+    """Bullet.draw returns early when class sprite is not set."""
+    from webbrick.bullet import Bullet
+
+    Bullet._sprite = None  # type: ignore[assignment]
+    try:
+        bullet = Bullet(100, 100)
+
+        # Use a simple mock context to ensure coverage tracks the call
+        class MockCtx:
+            def fillRect(self, *args: object) -> None:
+                pass
+
+            def drawImage(self, *args: object) -> None:
+                pass
+
+        bullet.draw(MockCtx(), 0)
+    finally:
+        Bullet._sprite = arena.bullet_sprite  # type: ignore[assignment]
+
+
+def test_bullet_as_tuple(arena: Game) -> None:
+    """Bullet._as_tuple returns (x, y)."""
+    from webbrick.bullet import Bullet
+
+    bullet = Bullet(100, 100)
+    assert Bullet._as_tuple(bullet) == (100, 100)
+
+
+def test_legacy_bullet_hits_brick(arena: Game) -> None:
+    """Legacy [x, y] bullet list hits a brick."""
+    arena.bullets = [[100.0, 400.0]]
+    target = brick(90, 400)
+    arena.bricks = [target]
+    arena._update_bullets(0.2)
+    assert target.hp == 0
+
+
+def test_legacy_bullet_off_screen(arena: Game) -> None:
+    """Legacy bullet is removed when it passes the HUD (uses old_y for check)."""
+    arena.bullets = [[100.0, 50.0]]
+    # First call: old_y=50, bottom=60 > HUD_H, so kept
+    arena._update_bullets(0.5)
+    assert arena.bullets == [[100.0, -260.0]]
+    # Second call: old_y=-260, bottom=-250 < HUD_H, so removed
+    arena._update_bullets(0.5)
+    assert arena.bullets == []
+
+
+# -- set_balls_radius ------------------------------------------------------------------
+
+
+def test_set_balls_radius(arena: Game) -> None:
+    """set_balls_radius changes all balls' radius."""
+    arena.balls = [Ball(100, 100, 0, -300), Ball(200, 200, 0, -300)]
+    arena.set_balls_radius(14.0)
+    assert all(b.radius == 14.0 for b in arena.balls)
+
+
+# -- ball collision at exact edge/corner ----------------------------------------------
+
+
+def test_ball_hits_brick_exact_corner(arena: Game) -> None:
+    """Ball centered exactly on brick corner triggers fallback axis bounce."""
+    # Place ball so its center is exactly at brick corner after moving
+    bx, by = 200, 200
+    # Ball at (bx - BALL_R, by - BALL_R) moving down-right will hit corner
+    ball = Ball(bx - BALL_R, by - BALL_R - 1, 300, 300)
+    arena.balls = [ball]
+    arena.bricks = [brick(bx, by)]
+    tick(arena, 0.05)
+    # Ball should have bounced (either dx or dy flipped)
+    assert ball.dx < 0 or ball.dy < 0
+
+
+def test_ball_hits_brick_exact_center_of_corner(arena: Game) -> None:
+    """Ball center exactly at brick corner (dist == 0) triggers fallback."""
+    # Position ball so its center is exactly at brick corner
+    ball = Ball(200.0, 200.0, 300, 300)  # Center exactly at brick corner
+    arena.balls = [ball]
+    arena.bricks = [brick(200, 200)]
+    tick(arena, 0.01)  # Small step to trigger collision
+    # Should bounce using fallback axis test
+    assert ball.dx < 0 or ball.dy < 0
+
+
+def test_ball_hits_brick_edge_overlap_x_smaller(arena: Game) -> None:
+    """Ball slides along brick vertical edge with dist == 0 (triggers bounce_x fallback)."""
+    # Ball moves right into the left face so that, after the step, its centre sits
+    # exactly on the brick's left edge (dist == 0) with dx != 0 for the flip to show
+    bx, by = 200, 200
+    ball = Ball(bx - 2.5, by + 7.5, 300, 300)  # first 2.5 px sub-step lands on the edge
+    arena.balls = [ball]
+    arena.bricks = [brick(bx, by)]
+    tick(arena, 0.01)
+    # dist == 0 at (bx, by + 10); overlap_x = BALL_R = 7, overlap_y = 14 -> overlap_x < overlap_y
+    assert ball.dx < 0
+
+
+def test_ball_hits_brick_edge_overlap_y_smaller(arena: Game) -> None:
+    """Ball slides along brick horizontal edge with dist == 0 (triggers bounce_y fallback)."""
+    # Ball moves down into the top face so that, after the step, its centre sits
+    # exactly on the brick's top edge (dist == 0) with dy != 0 for the flip to show
+    bx, by = 200, 200
+    ball = Ball(bx + 17.5, by - 2.5, 300, 300)  # first 2.5 px sub-step lands on the edge
+    arena.balls = [ball]
+    arena.bricks = [brick(bx, by)]
+    tick(arena, 0.01)
+    # dist == 0 at (bx + 20, by); overlap_y = BALL_R = 7, overlap_x = 14 -> overlap_y < overlap_x
+    assert ball.dy < 0
+
+
+# -- fire ball sprite ------------------------------------------------------------------
+
+
+def test_fire_ball_sprite_created(arena: Game) -> None:
+    """Fire ball gets a sprite when fire=True."""
+    from webbrick.ball import Ball
+    from webbrick.config import BALL_R
+
+    arena.balls = [Ball(100, 100, 0, -300, fire=True)]
+    # Force draw to create sprite
+    arena._draw_movers()
+    # Should have created fire sprite with default BALL_R
+    assert (BALL_R, True) in arena._ball_sprites
+
+
+def test_fire_ball_sprite_created_for_large_radius(arena: Game) -> None:
+    """Fire ball with large radius gets a sprite."""
+    from webbrick.ball import Ball
+
+    arena.balls = [Ball(100, 100, 0, -300, fire=True, radius=14.0)]
+    arena._draw_movers()
+    assert (14.0, True) in arena._ball_sprites
+
+
+def test_normal_ball_sprite_created_for_large_radius(arena: Game) -> None:
+    """Normal (non-fire) ball with large radius gets a sprite."""
+    from webbrick.ball import Ball
+
+    arena.balls = [Ball(100, 100, 0, -300, fire=False, radius=14.0)]
+    arena._draw_movers()
+    assert (14.0, False) in arena._ball_sprites
+
+
+# -- legacy bullet draw ----------------------------------------------------------------
+
+
+def test_draw_movers_with_legacy_bullets(arena: Game) -> None:
+    """_draw_movers handles legacy [x, y] bullet lists."""
+    arena.bullets = [[100.0, 300.0]]
+    arena._draw_movers()  # Should not crash
+
+
+def test_draw_movers_with_bullet_objects(arena: Game) -> None:
+    """_draw_movers handles Bullet objects."""
+    from webbrick.bullet import Bullet
+
+    arena.bullets = [Bullet(100.0, 300.0)]
+    arena._draw_movers()  # Should not crash
+
+
+def test_draw_movers_legacy_bullet_no_sprite(arena: Game) -> None:
+    """_draw_movers handles legacy bullets when bullet_sprite is None."""
+    arena.bullets = [[100.0, 300.0]]
+    arena.bullet_sprite = None
+    arena._draw_movers()  # Should not crash
+
+
+# -- paddle draw with no sprite --------------------------------------------------------
+
+
+def test_paddle_draw_with_no_sprite(arena: Game) -> None:
+    """Paddle.draw returns early when paddle sprite is None."""
+    arena.paddle._paddle_sprite = None  # type: ignore[assignment]
+    arena.paddle.draw(arena.ctx, 0, has_gun=False)  # type: ignore[arg-type]  # fake ctx

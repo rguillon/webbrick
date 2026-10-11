@@ -7,13 +7,11 @@ display scale. Text uses the 5x7 bitmap font from ``font.py``.
 
 from __future__ import annotations
 
-import math
 import random
 import re
 from typing import TYPE_CHECKING
 
 from .config import (
-    BALL_R,
     BRICK_COLS,
     BRICK_H,
     BRICK_W,
@@ -281,38 +279,6 @@ def make_bullet_sprite(pad: int) -> Sprite:
     block(g, origin, origin, cols, rows)
     g.fillStyle = "#ffffff"
     block(g, origin, origin, cols, 2)
-    return sprite
-
-
-def make_ball_sprite(
-    pad: int,
-    core: str = "#ffffff",
-    edge: str = "#7dd3fc",
-    glow: str = "#bae6fd",
-) -> Sprite:
-    """Round pixel ball (white-blue by default), ``pad`` px of room around it for the glow."""
-    size = 2 * (BALL_R + pad)
-    sprite, g = offscreen(size, size)
-    origin, n = pad // PIXEL, 2 * BALL_R // PIXEL
-    mid = (n - 1) / 2
-    shades = {"glow": glow, "edge": edge, "body": mix(core, edge, 0.35), "core": core}
-    for row in range(-1, n + 1):
-        for col in range(-1, n + 1):
-            d = math.hypot(col - mid, row - mid)
-            if d > mid + 1.3:
-                continue
-            if d > mid + 0.5:
-                shade = "glow"
-            elif d > mid - 0.6:
-                shade = "edge"
-            elif col + row <= mid:
-                shade = "core"
-            else:
-                shade = "body"
-            g.globalAlpha = 0.35 if shade == "glow" else 1.0
-            g.fillStyle = shades[shade]
-            block(g, origin + col, origin + row)
-    g.globalAlpha = 1.0
     return sprite
 
 

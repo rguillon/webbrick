@@ -1,3 +1,6 @@
+# Copyright (c) 2024-2025 Renaud de Landtsheer
+# SPDX-License-Identifier: MIT
+
 """The game: level-select menu, levels, paddle, ball and bonuses."""
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ from pyodide.ffi import create_proxy
 from .ball import Ball
 from .bonus import BONUSES, Bonus
 from .brick import Brick, build_bricks
+from .bullet import Bullet
 from .config import (
     BALL_R,
     BALL_SPEED,
@@ -21,7 +25,6 @@ from .config import (
     BRICK_H,
     BRICK_W,
     BULLET_H,
-    BULLET_INTERVAL,
     BULLET_SPEED,
     BULLET_W,
     CARD_COLS,
@@ -45,7 +48,6 @@ from .config import (
     MAX_TILT,
     MULTI_SPREAD,
     PADDLE_H,
-    PADDLE_SPEED,
     PADDLE_W,
     PADDLE_Y,
     PIXEL,
@@ -63,7 +65,6 @@ from .config import (
 )
 from .graphics import (
     make_background,
-    make_ball_sprite,
     make_brick_sprite,
     make_bullet_sprite,
     make_cannon_sprite,
@@ -76,7 +77,9 @@ from .graphics import (
     mix,
     pixel_box,
 )
+from .gun import Gun
 from .levels import LEVELS
+from .paddle import Paddle
 from .particles import Particles
 from .powerup import PowerUp
 from .sprite import snap
@@ -107,6 +110,8 @@ class Game:
         self.scale = 0.0  # device px per logical px; set by _resize()
         self._brick_sprites: dict[tuple[str, int, bool, bool], Sprite] = {}
         self._text_sprites: dict[tuple[str, str], Sprite] = {}
+        self.paddle = Paddle()
+        self.gun = Gun()
         self._build_sprites()
         self._resize()
 
@@ -118,13 +123,11 @@ class Game:
         self.bricks: list[Brick] = []
         self.particles = Particles(self.rng)  # sparks thrown when things break
         self.shake = 0.0
-        self.paddle_x = (WIDTH - PADDLE_W) / 2.0
         self.balls: list[Ball] = []
         self.powerups: list[PowerUp] = []  # falling bonus capsules
         self.bonuses: list[Bonus] = []  # running bonus effects, applied on every frame
         self.speed_mult = 1.0  # ball speed multiplier, driven by the "speed" bonus
-        self.gun_cooldown = 0.0  # seconds until the next volley
-        self.bullets: list[list[float]] = []  # [x, y] top-left
+        self.bullets: list[Bullet | list[float]] = []
         self.state = "menu"  # menu | ready | playing | paused | over | cleared | victory
         self._set_status("Choose a level")
         self.frame_proxy = create_proxy(self.frame)
@@ -154,17 +157,19 @@ class Game:
             if not brick.solid and self.rng.random() < BONUS_CHANCE:
                 brick.bonus = self.rng.choices(kinds, weights)[0]
         self.particles.clear()
-        self.paddle_x = (WIDTH - PADDLE_W) / 2.0
+        self.paddle.reset()
+        self.gun.reset()
         self._reset_ball()
 
     def _reset_ball(self) -> None:
         """Park a single ball on the paddle, waiting for launch; drop active bonuses."""
         self.state = "ready"
-        self.balls = [Ball(self.paddle_x + PADDLE_W / 2, PADDLE_Y - BALL_R)]
+        self.balls = [Ball(self.paddle.center_x, self.paddle.ball_bounce_y(BALL_R))]
         self.powerups.clear()
         self.bonuses.clear()
         self.speed_mult = 1.0
         self.bullets.clear()
+        self.gun.reset()
         self._set_status(f"Level {self.level + 1} — press Space to launch")
 
     def _ball_speed(self) -> float:
@@ -176,6 +181,16 @@ class Game:
         self.balls[0].head_at(tilt, self._ball_speed())
         self.state = "playing"
         self._set_status(f"Level {self.level + 1}: {LEVELS[self.level][0]}")
+
+    # Backward compatibility properties for tests
+    @property
+    def paddle_x(self) -> float:
+        """Paddle x position (legacy property for tests)."""
+        return self.paddle.x
+
+    @paddle_x.setter
+    def paddle_x(self, value: float) -> None:
+        self.paddle.x = value
 
     def _confirm(self) -> None:
         """Space / Enter: the context action for the current state."""
@@ -245,12 +260,10 @@ class Game:
 
         if self.state not in ("ready", "playing"):
             return
-        direction = ("right" in self.held) - ("left" in self.held)
-        self.paddle_x += direction * PADDLE_SPEED * dt
-        self.paddle_x = max(0.0, min(WIDTH - PADDLE_W, self.paddle_x))
+        self.paddle.update(dt, held_left="left" in self.held, held_right="right" in self.held)
 
         if self.state == "ready":
-            self.balls[0].x = self.paddle_x + PADDLE_W / 2  # ball rides the paddle
+            self.balls[0].x = self.paddle.center_x
             return
         self._update_bonuses(dt)
         self._update_powerups(dt)
@@ -287,31 +300,53 @@ class Game:
 
     def _update_bullets(self, dt: float) -> None:
         """Fire while the gun is active and the fire key is held; move bullets into bricks."""
-        self.gun_cooldown = max(0.0, self.gun_cooldown - dt)
-        if self.has_bonus("gun") and "fire" in self.held and self.gun_cooldown == 0:
-            self.gun_cooldown = BULLET_INTERVAL
-            for x in (self.paddle_x + 9, self.paddle_x + PADDLE_W - 9):
-                self.bullets.append([x - BULLET_W / 2, PADDLE_Y - 6 - BULLET_H])
-        remaining = []
+        self.gun.update(dt)
+        if self.has_bonus("gun") and "fire" in self.held:
+            new_bullets = self.gun.try_fire(self.paddle)
+            if new_bullets:
+                self.bullets.extend(new_bullets)
+        self.bullets = self._filter_bullets(dt)
+
+    def _filter_bullets(self, dt: float) -> list[Bullet | list[float]]:
+        """Update bullets and return those still in play."""
+        remaining: list[Bullet | list[float]] = []
         for bullet in self.bullets:
-            x, old_y = bullet
-            bullet[1] -= BULLET_SPEED * dt
-            # sweep from the new top to the old bottom so fast bullets can't skip a brick
-            top, bottom = bullet[1], old_y + BULLET_H
-            hits = [
-                b
-                for b in self.bricks
-                if x < b.x + BRICK_W and x + BULLET_W > b.x and top < b.y + BRICK_H and bottom > b.y
-            ]
-            if hits:
-                brick = max(hits, key=lambda b: b.y)  # the lowest one is reached first
-                self.particles.burst(x + BULLET_W / 2, brick.y + BRICK_H, "#bef264", 4)
-                self._damage_brick(brick)
-                if self.state != "playing":
-                    return
-            elif bottom > HUD_H:
-                remaining.append(bullet)
-        self.bullets = remaining
+            if isinstance(bullet, Bullet):
+                if self._update_new_bullet(bullet, dt, remaining):
+                    return []  # level state changed
+            elif self._update_legacy_bullet(bullet, dt, remaining):
+                return []
+        return remaining
+
+    def _update_new_bullet(self, bullet: Bullet, dt: float, remaining: list[Bullet | list[float]]) -> bool:
+        """Update a Bullet object. Return True if level state changed."""
+        old_y = bullet.y
+        bullet.update(dt)
+        hit_brick = bullet.check_collision(self.bricks, old_y)
+        if hit_brick:
+            self.particles.burst(bullet.center_x, hit_brick.y + BRICK_H, "#bef264", 4)
+            self._damage_brick(hit_brick)
+            return self.state != "playing"
+        if not bullet.is_off_screen(old_y):
+            remaining.append(bullet)
+        return False
+
+    def _update_legacy_bullet(self, bullet: list[float], dt: float, remaining: list[Bullet | list[float]]) -> bool:
+        """Update a legacy [x, y] bullet list. Return True if level state changed."""
+        x, old_y = bullet
+        bullet[1] -= BULLET_SPEED * dt
+        top, bottom = bullet[1], old_y + BULLET_H
+        hits = [
+            b for b in self.bricks if x < b.x + BRICK_W and x + BULLET_W > b.x and top < b.y + BRICK_H and bottom > b.y
+        ]
+        if hits:
+            brick = max(hits, key=lambda b: b.y)
+            self.particles.burst(x + BULLET_W / 2, brick.y + BRICK_H, "#bef264", 4)
+            self._damage_brick(brick)
+            return self.state != "playing"
+        if bottom > HUD_H:
+            remaining.append(bullet)
+        return False
 
     def set_speed_mult(self, mult: float) -> None:
         """Change the ball speed multiplier, rescaling the balls in flight."""
@@ -324,6 +359,11 @@ class Game:
         """Light every ball on fire, or put them out; fire balls run through bricks."""
         for ball in self.balls:
             ball.fire = fire
+
+    def set_balls_radius(self, radius: float) -> None:
+        """Change the radius of every ball in play."""
+        for ball in self.balls:
+            ball.radius = radius
 
     def award_life(self) -> None:
         """Give the player an extra life, or points when they already have the most."""
@@ -379,22 +419,23 @@ class Game:
 
         The ball moves itself; the game only detects and signals.
         """
-        if ball.x < BALL_R:
-            ball.bounce_x(BALL_R)
-        elif ball.x > WIDTH - BALL_R:
-            ball.bounce_x(WIDTH - BALL_R)
-        if ball.y < HUD_H + BALL_R:
-            ball.bounce_y(HUD_H + BALL_R)
+        r = ball.radius
+        if ball.x < r:
+            ball.bounce_x(r)
+        elif ball.x > WIDTH - r:
+            ball.bounce_x(WIDTH - r)
+        if ball.y < HUD_H + r:
+            ball.bounce_y(HUD_H + r)
 
         # paddle: bounce angle depends on where the ball struck it
         if (
             ball.dy > 0
-            and PADDLE_Y - BALL_R <= ball.y <= PADDLE_Y + PADDLE_H
-            and self.paddle_x - BALL_R <= ball.x <= self.paddle_x + PADDLE_W + BALL_R
+            and self.paddle.ball_bounce_y(r) <= ball.y <= PADDLE_Y + PADDLE_H
+            and self.paddle.left - r <= ball.x <= self.paddle.right + r
         ):
-            offset = (ball.x - (self.paddle_x + PADDLE_W / 2)) / (PADDLE_W / 2)
+            offset = self.paddle.ball_hit_offset(ball.x)
             angle = max(-1.0, min(1.0, offset)) * MAX_TILT
-            ball.bounce_paddle(PADDLE_Y - BALL_R, angle, self._ball_speed())
+            ball.bounce_paddle(self.paddle.ball_bounce_y(r), angle, self._ball_speed())
 
         self._hit_brick(ball)
 
@@ -402,24 +443,46 @@ class Game:
         """Bounce ``ball`` off the first brick it overlaps and damage it.
 
         A ball on fire smashes through breakable bricks without bouncing.
+        Uses circle-rectangle collision: distance from ball center to the closest
+        point on the brick rectangle must be less than ball.radius.
         """
-        left, right = ball.x - BALL_R, ball.x + BALL_R
-        top, bottom = ball.y - BALL_R, ball.y + BALL_R
+        cx, cy = ball.x, ball.y
+        r = ball.radius
         for brick in self.bricks:
             bx, by = brick.x, brick.y
-            if left >= bx + BRICK_W or right <= bx or top >= by + BRICK_H or bottom <= by:
-                continue
+            # Find closest point on brick rectangle to ball center
+            closest_x = max(bx, min(cx, bx + BRICK_W))
+            closest_y = max(by, min(cy, by + BRICK_H))
+            # Vector from closest point to ball center
+            dx = cx - closest_x
+            dy = cy - closest_y
+            dist_sq = dx * dx + dy * dy
+            if dist_sq >= r * r:
+                continue  # no collision
             if ball.fire and not brick.solid:
                 self.score += POINTS_PER_HIT * brick.hp
                 self._break_brick(brick)
                 return
-            # overlapping: bounce on the shallowest axis
-            overlap_x = min(right, bx + BRICK_W) - max(left, bx)
-            overlap_y = min(bottom, by + BRICK_H) - max(top, by)
-            if overlap_x < overlap_y:
-                ball.bounce_x(bx - BALL_R if ball.x < bx + BRICK_W / 2 else bx + BRICK_W + BALL_R)
+            # Collision: push ball out to surface and bounce along the normal
+            dist = math.sqrt(dist_sq)
+            if dist == 0.0:
+                # Ball center exactly on rectangle edge/corner; fall back to axis test
+                overlap_x = min(cx + r, bx + BRICK_W) - max(cx - r, bx)
+                overlap_y = min(cy + r, by + BRICK_H) - max(cy - r, by)
+                if overlap_x < overlap_y:
+                    ball.bounce_x(bx - r if cx < bx + BRICK_W / 2 else bx + BRICK_W + r)
+                else:
+                    ball.bounce_y(by - r if cy < by + BRICK_H / 2 else by + BRICK_H + r)
             else:
-                ball.bounce_y(by - BALL_R if ball.y < by + BRICK_H / 2 else by + BRICK_H + BALL_R)
+                # Normalize and push out
+                nx = dx / dist
+                ny = dy / dist
+                ball.pos.x = closest_x + nx * r
+                ball.pos.y = closest_y + ny * r
+                # Reflect velocity
+                dot = ball.vel.x * nx + ball.vel.y * ny
+                ball.vel.x -= 2 * dot * nx
+                ball.vel.y -= 2 * dot * ny
             self._damage_brick(brick)
             return
 
@@ -467,14 +530,19 @@ class Game:
         """Paint the sprites that never change (bricks and text are painted on demand)."""
         self.background = make_background()
         self.paddle_sprite = make_paddle_sprite(self.SPRITE_PAD)
-        self.ball_sprite = make_ball_sprite(self.SPRITE_PAD)
-        self.fire_ball_sprite = make_ball_sprite(self.SPRITE_PAD, "#fef08a", "#f97316", "#fb923c")
         self.cannon_sprite = make_cannon_sprite(self.SPRITE_PAD)
-        self.bullet_sprite = make_bullet_sprite(self.SPRITE_PAD)
+        self.bullet_sprite: Sprite | None = make_bullet_sprite(self.SPRITE_PAD)
         self.heart_sprite = make_heart_sprite()
         self.title_sprite = make_title("BRICK BREAKER")
         self.powerup_sprites = {kind: make_powerup_sprite(kind, self.SPRITE_PAD) for kind in POWERUPS}
         self.previews = [make_preview(rows) for _, rows in LEVELS]
+        # ball sprites by radius
+        self._ball_sprites: dict[tuple[float, bool], Sprite] = {}
+        self._ball_sprites[(BALL_R, False)] = Ball.make_sprite(self.SPRITE_PAD, BALL_R)
+        self._ball_sprites[(BALL_R, True)] = Ball.make_sprite(self.SPRITE_PAD, BALL_R, fire=True)
+        # give sprites to paddle and bullet classes
+        self.paddle.set_sprites(self.paddle_sprite, self.cannon_sprite)
+        Bullet.set_sprite(self.bullet_sprite)
 
     def _brick_sprite(self, brick: Brick) -> Sprite:
         key = (brick.color, brick.hp, brick.solid, brick.bonus is not None)
@@ -539,22 +607,42 @@ class Game:
         pad = self.SPRITE_PAD
         for powerup in self.powerups:
             self.powerup_sprites[powerup.kind].draw(ctx, snap(powerup.x) - pad, snap(powerup.y) - pad)
-        for x, y in self.bullets:
-            self.bullet_sprite.draw(ctx, snap(x) - pad, snap(y) - pad)
-        paddle_x = snap(self.paddle_x)
-        self.paddle_sprite.draw(ctx, paddle_x - pad, PADDLE_Y - pad)
-        if self.has_bonus("gun"):
-            self.cannon_sprite.draw(ctx, paddle_x - pad, PADDLE_Y - pad)
+        for bullet in self.bullets:
+            if isinstance(bullet, Bullet):
+                bullet.draw(ctx, pad)
+            else:
+                # Backward compatibility: bullet is a [x, y] list
+                x, y = bullet
+                if self.bullet_sprite:
+                    self.bullet_sprite.draw(ctx, snap(x) - pad, snap(y) - pad)
+        self.paddle.draw(ctx, pad, has_gun=self.has_bonus("gun"))
         for ball in self.balls:
             ctx.fillStyle = ball.color
+            r = ball.radius
             for i, (tx, ty) in enumerate(ball.trail):
                 frac = (i + 1) / (len(ball.trail) + 1)
-                side = PIXEL * max(1, round(BALL_R / PIXEL * frac))
+                trail_r = PIXEL * max(1, round(r / PIXEL * frac))
                 ctx.globalAlpha = 0.4 * frac
-                ctx.fillRect(snap(tx - side / 2), snap(ty - side / 2), side, side)
+                ctx.beginPath()
+                ctx.arc(snap(tx), snap(ty), trail_r, 0, 2 * math.pi)
+                ctx.fill()
             ctx.globalAlpha = 1.0
-            sprite = self.fire_ball_sprite if ball.fire else self.ball_sprite
-            sprite.draw(ctx, snap(ball.x - BALL_R) - pad, snap(ball.y - BALL_R) - pad)
+            # Use pixel-based ball sprite for the given radius
+            sprite = self._get_ball_sprite(r, fire=ball.fire)
+            draw_r = max(BALL_R, round(r / PIXEL) * PIXEL)
+            sprite.draw(ctx, snap(ball.x - draw_r) - pad, snap(ball.y - draw_r) - pad)
+
+    def _get_ball_sprite(self, radius: float, *, fire: bool) -> Sprite:
+        """Get or create a pixel ball sprite for the given radius and fire state."""
+        key = (radius, fire)
+        sprite = self._ball_sprites.get(key)
+        if sprite is None:
+            if fire:
+                sprite = Ball.make_sprite(self.SPRITE_PAD, radius, fire=True)
+            else:
+                sprite = Ball.make_sprite(self.SPRITE_PAD, radius)
+            self._ball_sprites[key] = sprite
+        return sprite
 
     def _draw_hud(self) -> None:  # pragma: no mutate block
         ctx = self.ctx

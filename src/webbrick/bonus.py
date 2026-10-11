@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .config import GUN_TIME, PIERCE_TIME, SPEED_BOOST, SPEED_TIME
+from .config import BALL_R, BIG_BALL_TIME, GUN_TIME, PIERCE_TIME, SPEED_BOOST, SPEED_TIME
 
 if TYPE_CHECKING:
     from .game import Game
@@ -90,6 +90,21 @@ class GunBonus(Bonus):
     duration = GUN_TIME
 
 
+class BigBallBonus(Bonus):
+    """Doubles the size of every ball for the duration."""
+
+    kind = "bigball"
+    duration = BIG_BALL_TIME
+
+    def apply(self, game: Game, dt: float) -> bool:
+        """Double ball radius, restore when over."""
+        game.set_balls_radius(BALL_R * 2)
+        if not super().apply(game, dt):
+            return False
+        game.set_balls_radius(BALL_R)
+        return True
+
+
 # kind: the class a caught capsule of that kind starts
 BONUSES: dict[str, type[Bonus]] = {
     "multi": MultiBonus,
@@ -97,4 +112,5 @@ BONUSES: dict[str, type[Bonus]] = {
     "life": LifeBonus,
     "speed": SpeedBonus,
     "gun": GunBonus,
+    "bigball": BigBallBonus,
 }

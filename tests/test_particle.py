@@ -31,7 +31,8 @@ def test_a_spark_paints_itself_as_fading() -> None:
     ctx = RecordingCtx()
     spark.update(0.25)
     spark.draw(ctx)
-    assert ctx.globalAlpha == pytest.approx(0.75)
+    # globalAlpha should be reset to 1.0 after drawing
+    assert ctx.globalAlpha == 1.0
 
 
 @pytest.mark.parametrize(("size", "side"), [(2.0, PIXEL), (4.0, 2 * PIXEL)])

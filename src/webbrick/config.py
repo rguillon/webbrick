@@ -63,9 +63,11 @@ POWERUPS = {
     "life": ("♥", "#ef4444", 1),  # extra life
     "speed": ("FAST", "#eab308", 3),  # faster ball
     "gun": ("GUN", "#84cc16", 2),  # paddle shoots bullets
+    "bigball": ("BIG", "#ec4899", 2),  # doubles ball size
 }
 PIERCE_TIME = 10.0  # s
 SPEED_TIME = 10.0  # s
+BIG_BALL_TIME = 10.0  # s
 GUN_TIME = 5.0  # s
 BULLET_W = 4
 BULLET_H = 10

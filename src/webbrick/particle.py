@@ -59,3 +59,4 @@ class Particle:
         ctx.globalAlpha = self.life / self.max_life
         ctx.fillStyle = self.color
         ctx.fillRect(snap(self.pos.x - side / 2), snap(self.pos.y - side / 2), side, side)
+        ctx.globalAlpha = 1.0
